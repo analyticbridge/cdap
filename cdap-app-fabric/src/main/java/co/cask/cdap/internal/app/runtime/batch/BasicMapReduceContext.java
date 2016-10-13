@@ -52,7 +52,6 @@ import co.cask.cdap.logging.context.MapReduceLoggingContext;
 import co.cask.cdap.logging.context.WorkflowProgramLoggingContext;
 import co.cask.cdap.proto.Id;
 import co.cask.cdap.proto.ProgramType;
-import co.cask.cdap.proto.id.Ids;
 import co.cask.cdap.proto.id.NamespaceId;
 import co.cask.cdap.proto.id.ProgramId;
 import com.google.common.collect.ImmutableMap;
@@ -80,7 +79,6 @@ final class BasicMapReduceContext extends AbstractContext implements MapReduceCo
   private final LoggingContext loggingContext;
   private final WorkflowProgramInfo workflowProgramInfo;
   private final Map<String, OutputFormatProvider> outputFormatProviders;
-  private final TransactionContext txContext;
   private final StreamAdmin streamAdmin;
   private final File pluginArchive;
   private final Map<String, LocalizeResource> resourcesToLocalize;
@@ -115,7 +113,6 @@ final class BasicMapReduceContext extends AbstractContext implements MapReduceCo
       RuntimeArguments.extractScope("task", "mapper", getRuntimeArguments()), spec.getMapperResources());
     this.reducerResources = SystemArguments.getResources(
       RuntimeArguments.extractScope("task", "reducer", getRuntimeArguments()), spec.getReducerResources());
-    this.txContext = getDatasetCache().newTransactionContext();
     this.streamAdmin = streamAdmin;
     this.pluginArchive = pluginArchive;
     this.resourcesToLocalize = new HashMap<>();
@@ -132,7 +129,7 @@ final class BasicMapReduceContext extends AbstractContext implements MapReduceCo
   }
 
   public TransactionContext getTransactionContext() {
-    return txContext;
+    return getDatasetCache().newTransactionContext();
   }
 
   private LoggingContext createLoggingContext(ProgramId programId, RunId runId,
