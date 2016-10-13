@@ -100,7 +100,8 @@ public class AppWithCustomTx extends AbstractApplication {
   static final String SERVICE = "TimedTxService";
   static final String SPARK_NOTX = "NoTxSpark";
   static final String SPARK_TX = "TxSpark";
-  static final String WORKER = "TimedTxWorker";
+  static final String WORKER_TX = "TxWorker";
+  static final String WORKER_NOTX = "NoTxWorker";
   static final String WORKFLOW_TX = "TxWorkflow";
   static final String WORKFLOW_NOTX = "NoTxWorkflow";
 
@@ -136,7 +137,8 @@ public class AppWithCustomTx extends AbstractApplication {
     setName(NAME);
     addStream(INPUT);
     createDataset(CAPTURE, TransactionCapturingTable.class);
-    addWorker(new TimeoutWorker());
+    addWorker(new NoTxWorker());
+    addWorker(new TxWorker());
     addMapReduce(new TxMR());
     addMapReduce(new NoTxMR());
     addSpark(new SparkWithCustomTx.TxSpark());
@@ -234,48 +236,84 @@ public class AppWithCustomTx extends AbstractApplication {
     }
   }
 
-  public static class TimeoutWorker extends AbstractWorker {
+  public static class NoTxWorker extends AbstractWorker {
 
     @Override
     protected void configure() {
-      setName(WORKER);
+      setName(WORKER_NOTX);
     }
 
     @Override
     public void initialize(WorkerContext context) throws Exception {
       super.initialize(context);
-      recordTransaction(getContext(), WORKER, INITIALIZE);
-      executeRecordTransaction(context, WORKER, INITIALIZE_TX, TIMEOUT_WORKER_INITIALIZE);
+      recordTransaction(getContext(), WORKER_NOTX, INITIALIZE);
+      executeRecordTransaction(context, WORKER_NOTX, INITIALIZE_TX, TIMEOUT_WORKER_INITIALIZE);
       context.execute(new TxRunnable() {
         @Override
         public void run(DatasetContext ctext) throws Exception {
-          attemptNestedTransaction(getContext(), WORKER, INITIALIZE_NEST);
+          attemptNestedTransaction(getContext(), WORKER_NOTX, INITIALIZE_NEST);
         }
       });
     }
 
     @Override
     public void run() {
-      recordTransaction(getContext(), WORKER, RUNTIME);
-      executeRecordTransaction(getContext(), WORKER, RUNTIME_TX, TIMEOUT_WORKER_RUNTIME);
+      recordTransaction(getContext(), WORKER_NOTX, RUNTIME);
+      executeRecordTransaction(getContext(), WORKER_NOTX, RUNTIME_TX, TIMEOUT_WORKER_RUNTIME);
       getContext().execute(new TxRunnable() {
         @Override
         public void run(DatasetContext ctext) throws Exception {
-          attemptNestedTransaction(getContext(), WORKER, RUNTIME_NEST);
+          attemptNestedTransaction(getContext(), WORKER_NOTX, RUNTIME_NEST);
         }
       });
     }
 
     @Override
     public void destroy() {
-      recordTransaction(getContext(), WORKER, DESTROY);
-      executeRecordTransaction(getContext(), WORKER, DESTROY_TX, TIMEOUT_WORKER_DESTROY);
+      recordTransaction(getContext(), WORKER_NOTX, DESTROY);
+      executeRecordTransaction(getContext(), WORKER_NOTX, DESTROY_TX, TIMEOUT_WORKER_DESTROY);
       getContext().execute(new TxRunnable() {
         @Override
         public void run(DatasetContext ctext) throws Exception {
-          attemptNestedTransaction(getContext(), WORKER, DESTROY_NEST);
+          attemptNestedTransaction(getContext(), WORKER_NOTX, DESTROY_NEST);
         }
       });
+      super.destroy();
+    }
+  }
+
+  public static class TxWorker extends AbstractWorker {
+
+    @Override
+    protected void configure() {
+      setName(WORKER_TX);
+    }
+
+    @Override
+    @TransactionPolicy(TransactionControl.IMPLICIT)
+    public void initialize(WorkerContext context) throws Exception {
+      super.initialize(context);
+      recordTransaction(getContext(), WORKER_TX, INITIALIZE);
+      attemptNestedTransaction(getContext(), WORKER_TX, INITIALIZE_NEST);
+    }
+
+    @Override
+    public void run() {
+      recordTransaction(getContext(), WORKER_TX, RUNTIME);
+      executeRecordTransaction(getContext(), WORKER_TX, RUNTIME_TX, TIMEOUT_WORKER_RUNTIME);
+      getContext().execute(new TxRunnable() {
+        @Override
+        public void run(DatasetContext ctext) throws Exception {
+          attemptNestedTransaction(getContext(), WORKER_TX, RUNTIME_NEST);
+        }
+      });
+    }
+
+    @Override
+    @TransactionPolicy(TransactionControl.IMPLICIT)
+    public void destroy() {
+      recordTransaction(getContext(), WORKER_TX, DESTROY);
+      attemptNestedTransaction(getContext(), WORKER_TX, DESTROY_NEST);
       super.destroy();
     }
   }

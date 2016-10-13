@@ -1191,7 +1191,8 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
       getStreamManager(testSpace, AppWithCustomTx.INPUT).send("hello");
 
       ServiceManager serviceManager = appManager.getServiceManager(AppWithCustomTx.SERVICE).start();
-      WorkerManager workerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER).start();
+      WorkerManager notxWorkerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER_NOTX).start();
+      WorkerManager txWorkerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER_TX).start();
       WorkflowManager txWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_TX).start();
       WorkflowManager notxWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_NOTX).start();
       FlowManager flowManager = appManager.getFlowManager(AppWithCustomTx.FLOW).start();
@@ -1211,7 +1212,8 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
       notxMRManager.waitForFinish(10L, TimeUnit.SECONDS);
       txSparkManager.waitForFinish(10L, TimeUnit.SECONDS);
       notxSparkManager.waitForFinish(10L, TimeUnit.SECONDS);
-      workerManager.waitForFinish(10L, TimeUnit.SECONDS);
+      notxWorkerManager.waitForFinish(10L, TimeUnit.SECONDS);
+      txWorkerManager.waitForFinish(10L, TimeUnit.SECONDS);
       txWFManager.waitForFinish(10L, TimeUnit.SECONDS);
       notxWFManager.waitForFinish(10L, TimeUnit.SECONDS);
 
@@ -1224,16 +1226,24 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
       // - if it is in an implicit transaction, then the expected value is "default"
       // - if it is in an explicit transaction, then the expected value is the transaction timeout
       Object[][] writesToValidate = new Object[][] {
-        // transactions attempted by the worker
-        { AppWithCustomTx.WORKER, AppWithCustomTx.INITIALIZE, null },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_WORKER_INITIALIZE },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.INITIALIZE_NEST, null },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.DESTROY, null },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_WORKER_DESTROY },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.DESTROY_NEST, null },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.RUNTIME, null },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.RUNTIME_TX, AppWithCustomTx.TIMEOUT_WORKER_RUNTIME },
-        { AppWithCustomTx.WORKER, AppWithCustomTx.RUNTIME_NEST, null },
+
+        // transactions attempted by the workers
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.INITIALIZE, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.DESTROY, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.DESTROY_NEST, null },
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.RUNTIME, null },
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.RUNTIME_TX, AppWithCustomTx.TIMEOUT_WORKER_RUNTIME },
+        { AppWithCustomTx.WORKER_TX, AppWithCustomTx.RUNTIME_NEST, null },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.INITIALIZE, null },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_WORKER_INITIALIZE },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.DESTROY, null },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_WORKER_DESTROY },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.DESTROY_NEST, null },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.RUNTIME, null },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.RUNTIME_TX, AppWithCustomTx.TIMEOUT_WORKER_RUNTIME },
+        { AppWithCustomTx.WORKER_NOTX, AppWithCustomTx.RUNTIME_NEST, null },
 
         // transactions attempted by the service
         { AppWithCustomTx.CONSUMER, AppWithCustomTx.RUNTIME_TX, AppWithCustomTx.TIMEOUT_CONSUMER_RUNTIME },
