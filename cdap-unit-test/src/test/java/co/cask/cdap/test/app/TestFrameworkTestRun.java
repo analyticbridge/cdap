@@ -1192,10 +1192,18 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
       WorkerManager workerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER).start();
       WorkflowManager txWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_TX).start();
       WorkflowManager notxWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_NOTX).start();
+      MapReduceManager txMRManager = appManager.getMapReduceManager(AppWithCustomTx.MAPREDUCE_TX).start();
+      MapReduceManager notxMRManager = appManager.getMapReduceManager(AppWithCustomTx.MAPREDUCE_NOTX).start();
+      SparkManager txSparkManager = appManager.getSparkManager(AppWithCustomTx.SPARK_TX).start();
+      SparkManager notxSparkManager = appManager.getSparkManager(AppWithCustomTx.SPARK_NOTX).start();
 
       serviceManager.waitForStatus(true);
       callServicePut(serviceManager.getServiceURL(), "test", "hello");
 
+      txMRManager.waitForFinish(10L, TimeUnit.SECONDS);
+      notxMRManager.waitForFinish(10L, TimeUnit.SECONDS);
+      txSparkManager.waitForFinish(10L, TimeUnit.SECONDS);
+      notxSparkManager.waitForFinish(10L, TimeUnit.SECONDS);
       workerManager.waitForFinish(10L, TimeUnit.SECONDS);
       txWFManager.waitForFinish(10L, TimeUnit.SECONDS);
       notxWFManager.waitForFinish(10L, TimeUnit.SECONDS);
@@ -1252,6 +1260,30 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
         { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY, null },
         { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_ACTION_DESTROY },
         { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY_NEST, null },
+
+        // transactions attempted by the mapreduce's
+        { AppWithCustomTx.MAPREDUCE_TX, AppWithCustomTx.INITIALIZE, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.MAPREDUCE_TX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.MAPREDUCE_TX, AppWithCustomTx.DESTROY, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.MAPREDUCE_TX, AppWithCustomTx.DESTROY_NEST, null },
+        { AppWithCustomTx.MAPREDUCE_NOTX, AppWithCustomTx.INITIALIZE, null },
+        { AppWithCustomTx.MAPREDUCE_NOTX, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_MAPREDUCE_INITIALIZE },
+        { AppWithCustomTx.MAPREDUCE_NOTX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.MAPREDUCE_NOTX, AppWithCustomTx.DESTROY, null },
+        { AppWithCustomTx.MAPREDUCE_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_MAPREDUCE_DESTROY },
+        { AppWithCustomTx.MAPREDUCE_NOTX, AppWithCustomTx.DESTROY_NEST, null },
+
+        // transactions attempted by the spark's
+        { AppWithCustomTx.SPARK_TX, AppWithCustomTx.INITIALIZE, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.SPARK_TX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.SPARK_TX, AppWithCustomTx.DESTROY, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.SPARK_TX, AppWithCustomTx.DESTROY_NEST, null },
+        { AppWithCustomTx.SPARK_NOTX, AppWithCustomTx.INITIALIZE, null },
+        { AppWithCustomTx.SPARK_NOTX, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_SPARK_INITIALIZE },
+        { AppWithCustomTx.SPARK_NOTX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.SPARK_NOTX, AppWithCustomTx.DESTROY, null },
+        { AppWithCustomTx.SPARK_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_SPARK_DESTROY },
+        { AppWithCustomTx.SPARK_NOTX, AppWithCustomTx.DESTROY_NEST, null },
       };
 
       for (Object[] writeToValidate : writesToValidate) {
