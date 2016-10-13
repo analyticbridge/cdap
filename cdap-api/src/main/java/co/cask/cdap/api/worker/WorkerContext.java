@@ -30,7 +30,7 @@ import co.cask.cdap.api.security.store.SecureStore;
  * Context for {@link Worker}.
  */
 public interface WorkerContext extends RuntimeContext, ServiceDiscoverer, StreamWriter,
-  PluginContext, Transactional, SecureStore {
+  DatasetContext, PluginContext, Transactional, SecureStore {
 
   /**
    * Returns the specification used to configure {@link Worker} bounded to this context.

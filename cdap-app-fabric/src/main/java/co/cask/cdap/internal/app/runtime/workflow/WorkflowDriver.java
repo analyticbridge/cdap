@@ -285,8 +285,9 @@ final class WorkflowDriver extends AbstractExecutionThreadService {
 
   @SuppressWarnings("unchecked")
   private void destroyWorkflow() {
-    TransactionContext transactionContext = basicWorkflowContext.getDatasetCache().newTransactionContext();
+    TransactionContext transactionContext = null;
     try {
+      transactionContext = basicWorkflowContext.getDatasetCache().newTransactionContext();
       transactionContext.start();
       if (workflow instanceof ProgramLifecycle) {
         basicWorkflowToken.setCurrentNode(workflowSpec.getName());
@@ -301,7 +302,9 @@ final class WorkflowDriver extends AbstractExecutionThreadService {
       transactionContext.finish();
     } catch (Throwable t) {
       try {
-        transactionContext.abort();
+        if (transactionContext != null) {
+          transactionContext.abort();
+        }
       } catch (Throwable e) {
         t.addSuppressed(e);
       }

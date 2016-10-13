@@ -58,6 +58,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.tephra.TransactionContext;
+import org.apache.tephra.TransactionFailureException;
 import org.apache.tephra.TransactionSystemClient;
 import org.apache.twill.api.RunId;
 import org.apache.twill.discovery.DiscoveryServiceClient;
@@ -128,7 +129,7 @@ final class BasicMapReduceContext extends AbstractContext implements MapReduceCo
     }
   }
 
-  public TransactionContext getTransactionContext() {
+  public TransactionContext getTransactionContext() throws TransactionFailureException {
     return getDatasetCache().newTransactionContext();
   }
 
