@@ -18,12 +18,18 @@ package co.cask.cdap.test.app;
 
 import co.cask.cdap.api.Transactional;
 import co.cask.cdap.api.TxRunnable;
+import co.cask.cdap.api.annotation.ProcessInput;
 import co.cask.cdap.api.annotation.TransactionControl;
 import co.cask.cdap.api.annotation.TransactionPolicy;
 import co.cask.cdap.api.app.AbstractApplication;
 import co.cask.cdap.api.customaction.AbstractCustomAction;
 import co.cask.cdap.api.data.DatasetContext;
 import co.cask.cdap.api.dataset.table.Put;
+import co.cask.cdap.api.flow.AbstractFlow;
+import co.cask.cdap.api.flow.flowlet.AbstractFlowlet;
+import co.cask.cdap.api.flow.flowlet.FlowletContext;
+import co.cask.cdap.api.flow.flowlet.OutputEmitter;
+import co.cask.cdap.api.flow.flowlet.StreamEvent;
 import co.cask.cdap.api.mapreduce.AbstractMapReduce;
 import co.cask.cdap.api.service.AbstractService;
 import co.cask.cdap.api.service.http.AbstractHttpServiceHandler;
@@ -79,11 +85,15 @@ public class AppWithCustomTx extends AbstractApplication {
 
   private static final String NAME = "AppWithCustomTx";
   static final String CAPTURE = "capture";
+  static final String INPUT = "input";
   static final String DEFAULT = "default";
 
   static final String ACTION_TX = "TxAction";
   static final String ACTION_NOTX = "NoTxAction";
   static final String CONSUMER = "HttpContentConsumer";
+  static final String FLOW = "TimedTxFlow";
+  static final String FLOWLET_TX = "TxFlowlet";
+  static final String FLOWLET_NOTX = "NoTxFlowlet";
   static final String MAPREDUCE_NOTX = "NoTxMR";
   static final String MAPREDUCE_TX = "TxMR";
   static final String PRODUCER = "HttpContentProducer";
@@ -108,6 +118,8 @@ public class AppWithCustomTx extends AbstractApplication {
   static final int TIMEOUT_ACTION_DESTROY = 14;
   static final int TIMEOUT_ACTION_INITIALIZE = 15;
   static final int TIMEOUT_CONSUMER_RUNTIME = 16;
+  static final int TIMEOUT_FLOWLET_DESTROY = 17;
+  static final int TIMEOUT_FLOWLET_INITIALIZE = 18;
   static final int TIMEOUT_MAPREDUCE_DESTROY = 19;
   static final int TIMEOUT_MAPREDUCE_INITIALIZE = 20;
   static final int TIMEOUT_PRODUCER_RUNTIME = 21;
@@ -122,6 +134,7 @@ public class AppWithCustomTx extends AbstractApplication {
   @Override
   public void configure() {
     setName(NAME);
+    addStream(INPUT);
     createDataset(CAPTURE, TransactionCapturingTable.class);
     addWorker(new TimeoutWorker());
     addMapReduce(new TxMR());
@@ -135,6 +148,16 @@ public class AppWithCustomTx extends AbstractApplication {
       protected void configure() {
         setName(SERVICE);
         addHandler(new TimeoutHandler());
+      }
+    });
+    addFlow(new AbstractFlow() {
+      @Override
+      protected void configure() {
+        setName(FLOW);
+        addFlowlet(FLOWLET_TX, new TxFlowlet());
+        addFlowlet(FLOWLET_NOTX, new NoTxFlowlet());
+        connectStream(INPUT, FLOWLET_TX);
+        connect(FLOWLET_TX, FLOWLET_NOTX);
       }
     });
   }
@@ -439,6 +462,81 @@ public class AppWithCustomTx extends AbstractApplication {
           attemptNestedTransaction(getContext(), ACTION_TX, RUNTIME_NEST);
         }
       });
+    }
+  }
+
+  static class TxFlowlet extends AbstractFlowlet {
+
+    @SuppressWarnings("unused")
+    private OutputEmitter<StreamEvent> out;
+
+    @Override
+    protected void configure() {
+      setName(FLOWLET_TX);
+    }
+
+    @Override
+    public void initialize(FlowletContext context) throws Exception {
+      super.initialize(context);
+      recordTransaction(context, context.getName(), INITIALIZE);
+      attemptNestedTransaction(context, context.getName(), INITIALIZE_NEST);
+    }
+
+    @Override
+    public void destroy() {
+      recordTransaction(getContext(), getContext().getName(), DESTROY);
+      attemptNestedTransaction(getContext(), getContext().getName(), DESTROY_NEST);
+    }
+
+    @ProcessInput
+    public void process(StreamEvent event) {
+      recordTransaction(getContext(), getContext().getName(), RUNTIME);
+      attemptNestedTransaction(getContext(), getContext().getName(), RUNTIME_NEST);
+      out.emit(event);
+    }
+  }
+
+  public static class NoTxFlowlet extends AbstractFlowlet {
+
+    @Override
+    protected void configure() {
+      setName(FLOWLET_NOTX);
+    }
+
+    @Override
+    @TransactionPolicy(TransactionControl.EXPLICIT)
+    public void initialize(final FlowletContext context) throws Exception {
+      super.initialize(context);
+      recordTransaction(context, context.getName(), INITIALIZE);
+      executeRecordTransaction(context, context.getName(), INITIALIZE_TX, TIMEOUT_FLOWLET_INITIALIZE);
+      getContext().execute(new TxRunnable() {
+        @Override
+        public void run(DatasetContext ctext) throws Exception {
+          attemptNestedTransaction(context, context.getName(), INITIALIZE_NEST);
+        }
+      });
+    }
+
+    @Override
+    @TransactionPolicy(TransactionControl.EXPLICIT)
+    public void destroy() {
+      recordTransaction(getContext(), getContext().getName(), DESTROY);
+      executeRecordTransaction(getContext(), getContext().getName(), DESTROY_TX, TIMEOUT_FLOWLET_DESTROY);
+      try {
+        getContext().execute(new TxRunnable() {
+          @Override
+          public void run(DatasetContext ctext) throws Exception {
+            attemptNestedTransaction(getContext(), getContext().getName(), DESTROY_NEST);
+          }
+        });
+      } catch (TransactionFailureException e) {
+        throw Throwables.propagate(e.getCause() == null ? e : e.getCause());
+      }
+    }
+
+    @ProcessInput
+    public void process(@SuppressWarnings("UnusedParameters") StreamEvent event) {
+      // no-op
     }
   }
 

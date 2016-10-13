@@ -1188,14 +1188,21 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
   public void testAppWithTxTimeout() throws Exception {
     ApplicationManager appManager = deployApplication(testSpace, AppWithCustomTx.class);
     try {
+      getStreamManager(testSpace, AppWithCustomTx.INPUT).send("hello");
+
       ServiceManager serviceManager = appManager.getServiceManager(AppWithCustomTx.SERVICE).start();
       WorkerManager workerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER).start();
       WorkflowManager txWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_TX).start();
       WorkflowManager notxWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_NOTX).start();
+      FlowManager flowManager = appManager.getFlowManager(AppWithCustomTx.FLOW).start();
       MapReduceManager txMRManager = appManager.getMapReduceManager(AppWithCustomTx.MAPREDUCE_TX).start();
       MapReduceManager notxMRManager = appManager.getMapReduceManager(AppWithCustomTx.MAPREDUCE_NOTX).start();
       SparkManager txSparkManager = appManager.getSparkManager(AppWithCustomTx.SPARK_TX).start();
       SparkManager notxSparkManager = appManager.getSparkManager(AppWithCustomTx.SPARK_NOTX).start();
+
+      flowManager.getFlowletMetrics(AppWithCustomTx.FLOWLET_NOTX).waitForProcessed(1, 10, TimeUnit.SECONDS);
+      flowManager.stop();
+      flowManager.waitForStatus(false);
 
       serviceManager.waitForStatus(true);
       callServicePut(serviceManager.getServiceURL(), "test", "hello");
@@ -1260,6 +1267,20 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
         { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY, null },
         { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_ACTION_DESTROY },
         { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY_NEST, null },
+
+        // transactions attempted by the flow
+        { AppWithCustomTx.FLOWLET_TX, AppWithCustomTx.INITIALIZE, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.FLOWLET_TX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.FLOWLET_TX, AppWithCustomTx.RUNTIME, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.FLOWLET_TX, AppWithCustomTx.RUNTIME_NEST, null },
+        { AppWithCustomTx.FLOWLET_TX, AppWithCustomTx.DESTROY, AppWithCustomTx.DEFAULT },
+        { AppWithCustomTx.FLOWLET_TX, AppWithCustomTx.DESTROY_NEST, null },
+        { AppWithCustomTx.FLOWLET_NOTX, AppWithCustomTx.INITIALIZE, null },
+        { AppWithCustomTx.FLOWLET_NOTX, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_FLOWLET_INITIALIZE },
+        { AppWithCustomTx.FLOWLET_NOTX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.FLOWLET_NOTX, AppWithCustomTx.DESTROY, null },
+        { AppWithCustomTx.FLOWLET_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_FLOWLET_DESTROY },
+        { AppWithCustomTx.FLOWLET_NOTX, AppWithCustomTx.DESTROY_NEST, null },
 
         // transactions attempted by the mapreduce's
         { AppWithCustomTx.MAPREDUCE_TX, AppWithCustomTx.INITIALIZE, AppWithCustomTx.DEFAULT },
