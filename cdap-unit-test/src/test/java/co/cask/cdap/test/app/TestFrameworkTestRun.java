@@ -1191,12 +1191,14 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
       ServiceManager serviceManager = appManager.getServiceManager(AppWithCustomTx.SERVICE).start();
       WorkerManager workerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER).start();
       WorkflowManager txWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_TX).start();
+      WorkflowManager notxWFManager = appManager.getWorkflowManager(AppWithCustomTx.WORKFLOW_NOTX).start();
 
       serviceManager.waitForStatus(true);
       callServicePut(serviceManager.getServiceURL(), "test", "hello");
 
       workerManager.waitForFinish(10L, TimeUnit.SECONDS);
       txWFManager.waitForFinish(10L, TimeUnit.SECONDS);
+      notxWFManager.waitForFinish(10L, TimeUnit.SECONDS);
 
       DataSetManager<TransactionCapturingTable> dataset = getDataset(testSpace, AppWithCustomTx.CAPTURE);
       Table t = dataset.get().getTable();
@@ -1234,6 +1236,22 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
         { AppWithCustomTx.ACTION_TX, AppWithCustomTx.RUNTIME_NEST, null },
         { AppWithCustomTx.ACTION_TX, AppWithCustomTx.DESTROY, AppWithCustomTx.DEFAULT },
         { AppWithCustomTx.ACTION_TX, AppWithCustomTx.DESTROY_NEST, null },
+
+        { AppWithCustomTx.WORKFLOW_NOTX, AppWithCustomTx.INITIALIZE, null },
+        { AppWithCustomTx.WORKFLOW_NOTX, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_WORKFLOW_INITIALIZE },
+        { AppWithCustomTx.WORKFLOW_NOTX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.WORKFLOW_NOTX, AppWithCustomTx.DESTROY, null },
+        { AppWithCustomTx.WORKFLOW_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_WORKFLOW_DESTROY },
+        { AppWithCustomTx.WORKFLOW_NOTX, AppWithCustomTx.DESTROY_NEST, null },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.INITIALIZE, null },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.INITIALIZE_TX, AppWithCustomTx.TIMEOUT_ACTION_INITIALIZE },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.INITIALIZE_NEST, null },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.RUNTIME, null },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.RUNTIME_TX, AppWithCustomTx.TIMEOUT_ACTION_RUNTIME },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.RUNTIME_NEST, null },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY, null },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY_TX, AppWithCustomTx.TIMEOUT_ACTION_DESTROY },
+        { AppWithCustomTx.ACTION_NOTX, AppWithCustomTx.DESTROY_NEST, null },
       };
 
       for (Object[] writeToValidate : writesToValidate) {
